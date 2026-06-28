@@ -9,6 +9,7 @@ let appData = {
 // DOM Elements
 const elements = {
     refreshBtn: document.getElementById('refreshBtn'),
+    exportCsvBtn: document.getElementById('exportCsvBtn'),
     syncStatus: document.getElementById('syncStatus'),
     statusDot: document.querySelector('.status-dot'),
     statusText: document.querySelector('.status-text'),
@@ -61,6 +62,9 @@ function setupEventListeners() {
     // Refresh & Retry
     elements.refreshBtn.addEventListener('click', () => fetchReleases(true));
     elements.retryBtn.addEventListener('click', () => fetchReleases(true));
+    
+    // Export CSV
+    elements.exportCsvBtn.addEventListener('click', exportToCSV);
     
     // Search Inputs
     elements.searchInput.addEventListener('input', handleSearch);
@@ -250,6 +254,9 @@ function renderFeed() {
                             <span class="update-date">${entry.date}</span>
                         </div>
                         <div class="card-actions-top">
+                            <button class="btn-card-action copy-btn-card" title="Copy text to clipboard">
+                                <i class="fa-solid fa-copy"></i> Copy
+                            </button>
                             <button class="btn-card-action tweet-btn-card" title="Compose a Tweet about this update">
                                 <i class="fa-brands fa-x-twitter"></i> Tweet
                             </button>
@@ -263,6 +270,10 @@ function renderFeed() {
                     </div>
                 `;
                 
+                // Attach copy handler to the button
+                const copyBtn = card.querySelector('.copy-btn-card');
+                copyBtn.addEventListener('click', () => copyToClipboard(update.description_text, copyBtn));
+
                 // Attach tweet handler to the button
                 const tweetBtn = card.querySelector('.tweet-btn-card');
                 tweetBtn.addEventListener('click', () => openTweetModal(entry.date, update, entry.link));
@@ -409,4 +420,99 @@ function publishTweet() {
     
     window.open(intentUrl, '_blank', 'noopener,noreferrer,width=550,height=420');
     closeTweetModal();
+}
+
+// Copy Release Note text to Clipboard
+async function copyToClipboard(text, buttonElement) {
+    try {
+        await navigator.clipboard.writeText(text);
+        
+        // Visual feedback (change icon and text temporarily)
+        const origContent = buttonElement.innerHTML;
+        buttonElement.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+        buttonElement.classList.add('success');
+        
+        setTimeout(() => {
+            buttonElement.innerHTML = origContent;
+            buttonElement.classList.remove('success');
+        }, 2000);
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+        alert('Failed to copy to clipboard.');
+    }
+}
+
+// Get the current list of filtered and searched updates
+function getFilteredUpdates() {
+    const list = [];
+    appData.releases.forEach(entry => {
+        entry.updates.forEach(update => {
+            const normalized = normalizeType(update.type);
+            const matchesFilter = (appData.currentFilter === 'all') || (appData.currentFilter === normalized);
+            
+            const matchesSearch = !appData.searchQuery || 
+                update.type.toLowerCase().includes(appData.searchQuery) ||
+                update.description_text.toLowerCase().includes(appData.searchQuery) ||
+                entry.date.toLowerCase().includes(appData.searchQuery);
+                
+            if (matchesFilter && matchesSearch) {
+                list.push({
+                    date: entry.date,
+                    type: update.type,
+                    description: update.description_text,
+                    link: entry.link
+                });
+            }
+        });
+    });
+    return list;
+}
+
+// Export the filtered updates to a CSV file
+function exportToCSV() {
+    const filtered = getFilteredUpdates();
+    if (filtered.length === 0) {
+        alert('No updates to export.');
+        return;
+    }
+    
+    // CSV headers
+    const headers = ['Date', 'Type', 'Description', 'Link'];
+    
+    // Helper to escape CSV values
+    const escapeCSV = (text) => {
+        if (text === null || text === undefined) return '';
+        const stringVal = String(text);
+        if (stringVal.includes(',') || stringVal.includes('\n') || stringVal.includes('"')) {
+            return `"${stringVal.replace(/"/g, '""')}"`;
+        }
+        return stringVal;
+    };
+    
+    // Build CSV content
+    const csvRows = [
+        headers.join(','),
+        ...filtered.map(row => [
+            escapeCSV(row.date),
+            escapeCSV(row.type),
+            escapeCSV(row.description),
+            escapeCSV(row.link)
+        ].join(','))
+    ];
+    
+    const csvContent = csvRows.join('\n');
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    
+    const filterSuffix = appData.currentFilter !== 'all' ? `-${appData.currentFilter}` : '';
+    const filename = `bigquery-release-notes${filterSuffix}.csv`;
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }

@@ -916,3 +916,10 @@ body {
         justify-content: flex-end;
     }
 }
+
+/* Copy Button Success State */
+.btn-card-action.copy-btn-card.success {
+    color: var(--color-feature);
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.08);
+}
