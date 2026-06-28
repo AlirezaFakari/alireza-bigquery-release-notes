@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BigQuery Release Notes Tracker</title>
+    <meta name="description" content="Stay up to date with the latest BigQuery features, changes, and deprecations. Share updates directly to Twitter.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>BigQuery</h1>
+                    <span>Release Notes Tracker</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="sync-status" id="syncStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Checking for updates...</span>
+                </div>
+                <button id="refreshBtn" class="btn btn-primary" title="Refresh release notes">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Dashboard -->
+        <section class="stats-dashboard">
+            <div class="stat-card" id="statTotal">
+                <div class="stat-icon total"><i class="fa-solid fa-list-check"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value">-</span>
+                    <span class="stat-label">Total Updates</span>
+                </div>
+            </div>
+            <div class="stat-card" id="statFeatures">
+                <div class="stat-icon feature"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value">-</span>
+                    <span class="stat-label">Features</span>
+                </div>
+            </div>
+            <div class="stat-card" id="statChanges">
+                <div class="stat-icon change"><i class="fa-solid fa-code-compare"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value">-</span>
+                    <span class="stat-label">Changes</span>
+                </div>
+            </div>
+            <div class="stat-card" id="statDeprecations">
+                <div class="stat-icon deprecation"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value">-</span>
+                    <span class="stat-label">Deprecations</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search and Filter Section -->
+        <section class="controls-panel">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Search updates by keyword..." autocomplete="off">
+                <button id="clearSearchBtn" class="clear-search-btn" style="display: none;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="filters-container">
+                <span class="filter-label">Filter by type:</span>
+                <div class="filter-chips" id="filterChips">
+                    <button class="chip active" data-type="all">All</button>
+                    <button class="chip" data-type="feature">Features</button>
+                    <button class="chip" data-type="change">Changes</button>
+                    <button class="chip" data-type="deprecation">Deprecations / Notices</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+            <!-- Loading State -->
+            <div class="loading-state" id="loadingState">
+                <div class="spinner"></div>
+                <p>Retrieving release notes from Google Cloud...</p>
+            </div>
+
+            <!-- Error State -->
+            <div class="error-state" id="errorState" style="display: none;">
+                <div class="error-icon">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                </div>
+                <h3>Failed to load release notes</h3>
+                <p id="errorMessage">Please check your internet connection or try again later.</p>
+                <button id="retryBtn" class="btn btn-secondary">
+                    <i class="fa-solid fa-arrows-rotate"></i> Try Again
+                </button>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-icon">
+                    <i class="fa-solid fa-folder-open"></i>
+                </div>
+                <h3>No matching updates found</h3>
+                <p>Try adjusting your search terms or filters.</p>
+            </div>
+
+            <!-- Release Notes Feed -->
+            <div class="release-feed" id="releaseFeed" style="display: none;">
+                <!-- Dynamically populated via JS -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>BigQuery Release Notes Tracker &bull; Powered by Flask &amp; Google Cloud Feeds</p>
+        </footer>
+    </div>
+
+    <!-- Tweet Composer Modal -->
+    <div class="modal-overlay" id="tweetModal" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>Compose Tweet</h3>
+                <button class="close-modal-btn" id="closeModalBtn">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="tweet-composer-card">
+                    <div class="user-avatar-placeholder">
+                        <i class="fa-brands fa-x-twitter"></i>
+                    </div>
+                    <div class="composer-inputs">
+                        <textarea id="tweetTextarea" placeholder="What's happening?" rows="6" maxlength="280"></textarea>
+                        
+                        <div class="tweet-meta-info">
+                            <div class="tweet-link-preview">
+                                <i class="fa-solid fa-link"></i>
+                                <span id="tweetLinkSpan" class="truncated-link"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <div class="char-counter-container">
+                        <span id="charCount">0</span>/280
+                        <div class="char-progress-ring">
+                            <svg width="24" height="24">
+                                <circle class="progress-bg" cx="12" cy="12" r="10"></circle>
+                                <circle class="progress-bar" id="progressBar" cx="12" cy="12" r="10"></circle>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-secondary" id="cancelTweetBtn">Cancel</button>
+                        <button class="btn btn-tweet" id="publishTweetBtn">
+                            <i class="fa-brands fa-x-twitter"></i> Tweet
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
